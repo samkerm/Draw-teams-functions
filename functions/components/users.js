@@ -48,3 +48,22 @@ users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (
   }
   return res.status(403).send('Initialization body or user is missing');
 });
+
+users.getUserInfo = app.get('/getUserInfo', (req, res) => {
+  console.log('Reached users/userId');
+
+  if (req.query && req.query.userId)
+  {
+    const userId = req.query.userId;
+    return admin.database().ref('users/' + userId).once('value')
+    .then((snapshot) =>
+    {
+      console.log('successfully received user data', snapshot.val());
+      return res.send(snapshot);
+    }).catch((error) => {
+      console.log('User data retrival failed: ', error.message);
+      return res.status(403).send(error);
+    });
+  }
+  return res.status(403).send('User id is missing in the query');
+});

@@ -16,8 +16,10 @@ app.use(validate);
 app.use(messages.addMessage);
 app.use(groups.search);
 app.use(groups.create);
+app.use(groups.join);
 app.use(users.updateDisplayName);
 app.use(users.initializeUserWithRatings);
+app.use(users.getUserInfo);
 // This HTTPS endpoint can only be accessed by your Firebase Users.
 // Requests need to be authorized by providing an `Authorization` HTTP header
 // with value `Bearer <Firebase ID Token>`.

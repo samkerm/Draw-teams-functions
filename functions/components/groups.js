@@ -33,7 +33,7 @@ groups.search = app.get('/groups/search', (req, res) => {
 groups.create = app.post('/groups/create', (req, res) => {
   console.log('Reached groups/create');
 
-  if (req.body, req.user) {
+  if (req.body && req.user) {
     const groupData = req.body;
       const userId = req.user.uid;
       console.log(req.user);
@@ -56,4 +56,45 @@ groups.create = app.post('/groups/create', (req, res) => {
       });
   }
   return res.status(403).send('Group creation content is missing');
+});
+
+groups.join = app.post('/groups/join', (req, res) => {
+  console.log('Reached groups/join');
+
+  if (req.query && req.query.groupId && req.user && req.user.uid)
+  {
+    const userId = req.user.uid;
+    const groupId = req.query.groupId;
+    const groupsRef = admin.database().ref('groups/' + groupId + '/regulars');
+    return groupsRef.once('value').then((snapshot) =>
+    {
+      const data = snapshot.val();
+      console.log(data);
+      let regulars = [];
+      for (const key in data) {
+        regulars.push(data[key]);
+      }
+      console.log(regulars);
+      const found = regulars.find(el => el === userId);
+
+      if (found === undefined)
+      {
+        regulars.push(userId);
+      }
+      else
+      {
+        throw new Error('User is already a regular member of this group');
+      }
+      let updates = {};
+      updates['groups/' + groupId + '/regulars'] = regulars;
+      updates['/users/' + userId + '/groupId'] = groupId;
+      return admin.database().ref().update(updates);
+    }).then(() => {
+      return res.send(true);
+    }).catch((error) => {
+      console.error(error.message)
+      return res.status(403).send(error.message);
+    });
+  }
+  return res.status(403).send('Group join content is missing');
 });
