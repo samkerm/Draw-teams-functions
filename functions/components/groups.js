@@ -55,7 +55,7 @@ groups.create = app.post('/groups/create', (req, res) => {
         return res.status(403).send(error);
       });
   }
-  return res.status(403).send('Group creation content is missing');
+  return res.status(400).send('Group creation content is missing');
 });
 
 groups.join = app.post('/groups/join', (req, res) => {
@@ -74,7 +74,7 @@ groups.join = app.post('/groups/join', (req, res) => {
       for (const key in data) {
         regulars.push(data[key]);
       }
-      console.log(regulars);
+
       const found = regulars.find(el => el === userId);
 
       if (found === undefined)
@@ -85,16 +85,20 @@ groups.join = app.post('/groups/join', (req, res) => {
       {
         throw new Error('User is already a regular member of this group');
       }
+      console.log(regulars);
+
       let updates = {};
       updates['groups/' + groupId + '/regulars'] = regulars;
       updates['/users/' + userId + '/groupId'] = groupId;
       return admin.database().ref().update(updates);
-    }).then(() => {
+    }).then((a, b) => {
+      console.log('Updated', a, b);
       return res.send(true);
     }).catch((error) => {
       console.error(error.message)
       return res.status(403).send(error.message);
     });
   }
-  return res.status(403).send('Group join content is missing');
+  console.log('Group join content is missing');
+  return res.status(400).send('Group join content is missing');
 });

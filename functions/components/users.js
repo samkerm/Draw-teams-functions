@@ -16,10 +16,10 @@ users.updateDisplayName = app.post('/users/updateDisplayName', (req, res) => {
       return res.send(user);
     }).catch((error) => {
       console.log('Update failed: ', error.message);
-      return res.status(403).send(error);
+      return res.status(403).send(new Error('Update failed'));
     });
   }
-  return res.status(403).send('Update Display Name content is missing');
+  return res.status(400).send('Update Display Name content is missing');
 });
 
 users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (req, res) => {
@@ -43,10 +43,10 @@ users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (
       }).catch((error) =>
       {
         console.log('Initialization failed: ', error.message);
-        return res.status(403).send(error);
+        return res.status(403).send(new Error('Initialization failed'));
       });
   }
-  return res.status(403).send('Initialization body or user is missing');
+  return res.status(400).send('Initialization body or user is missing');
 });
 
 users.getUserInfo = app.get('/getUserInfo', (req, res) => {
@@ -65,5 +65,5 @@ users.getUserInfo = app.get('/getUserInfo', (req, res) => {
       return res.status(403).send(error);
     });
   }
-  return res.status(403).send('User id is missing in the query');
+  return res.status(400).send('User id is missing in the query');
 });
