@@ -17,6 +17,7 @@ app.use(messages.addMessage);
 app.use(groups.search);
 app.use(groups.create);
 app.use(groups.join);
+app.use(groups.find);
 app.use(users.updateDisplayName);
 app.use(users.initializeUserWithRatings);
 app.use(users.getUserInfo);

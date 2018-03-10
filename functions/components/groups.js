@@ -66,7 +66,8 @@ groups.join = app.post('/groups/join', (req, res) => {
     const userId = req.user.uid;
     const groupId = req.query.groupId;
     const groupsRef = admin.database().ref('groups/' + groupId + '/regulars');
-    return groupsRef.once('value').then((snapshot) =>
+    return groupsRef.once('value')
+                    .then((snapshot) =>
     {
       const data = snapshot.val();
       console.log(data);
@@ -97,4 +98,26 @@ groups.join = app.post('/groups/join', (req, res) => {
   }
   console.log('Group join content is missing');
   return res.status(400).send('Group join content is missing');
+});
+
+groups.find = app.get('/groups', (req, res) => {
+  console.log('Reached /groups');
+
+  if (req.query && req.query.groupId) {
+    const groupId = req.query.groupId;
+
+    return admin.database()
+                .ref('/groups/' + groupId)
+                .once('value')
+                .then((dataSnapshot) =>
+     {
+       const data = dataSnapshot.val();
+       console.log(data);
+       return res.send(data);
+     }).catch((error) => {
+       console.log(error);
+       return res.status(403).send(error.message);
+     });
+  }
+  return res.status(400).send('Group groupId is missing');
 });
