@@ -87,13 +87,9 @@ groups.join = app.post('/groups/join', (req, res) => {
       }
       console.log(regulars);
 
-      let updates = {};
-      updates['groups/' + groupId + '/regulars'] = regulars;
-      updates['/users/' + userId + '/groupId'] = groupId;
-      return admin.database().ref().update(updates);
-    }).then((a, b) => {
-      console.log('Updated', a, b);
-      return res.send(true);
+      admin.database().ref('/users/' + userId ).child('groupId').set(groupId);
+      admin.database().ref('groups/' + groupId + '/regulars').set(regulars);
+      return res.sendStatus(200);
     }).catch((error) => {
       console.error(error.message)
       return res.status(403).send(error.message);
