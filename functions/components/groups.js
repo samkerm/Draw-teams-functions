@@ -100,11 +100,11 @@ groups.join = app.post('/groups/join', (req, res) => {
   return res.status(400).send('Group join content is missing');
 });
 
-groups.find = app.get('/groups', (req, res) => {
+groups.find = app.get('/groups/:id', (req, res) => {
   console.log('Reached /groups');
 
-  if (req.query && req.query.groupId) {
-    const groupId = req.query.groupId;
+  if (req.params && req.params.id) {
+    const groupId = req.params.id;
 
     return admin.database()
                 .ref('/groups/' + groupId)
