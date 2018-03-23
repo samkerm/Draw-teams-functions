@@ -49,52 +49,51 @@ groups.create = app.post('/groups/create', (req, res) => {
 
       return admin.database().ref().update(updates)
       .then(() => {
+        console.log('Updated');
         return res.send(true);
       })
       .catch((error) => {
+        console.log('Couldnt update');
         return res.status(403).send(error);
       });
   }
   return res.status(400).send('Group creation content is missing');
 });
 
-groups.join = app.post('/groups/join', (req, res) => {
+groups.join = app.post('/groups/:groupId/join', async (req, res) => {
   console.log('Reached groups/join');
 
-  if (req.query && req.query.groupId && req.user && req.user.uid)
+  if (req.params && req.params.groupId && req.user && req.user.uid)
   {
     const userId = req.user.uid;
-    const groupId = req.query.groupId;
-    const groupsRef = admin.database().ref('groups/' + groupId + '/regulars');
-    return groupsRef.once('value')
-                    .then((snapshot) =>
-    {
-      const data = snapshot.val();
-      console.log(data);
-      let regulars = [];
-      for (const key in data) {
-        regulars.push(data[key]);
-      }
+    const groupId = req.params.groupId;
 
-      const found = regulars.find(el => el === userId);
+    try {
+      const groupsRef = admin.database().ref('groups/' + groupId + '/regulars');
+      const snapshot = await groupsRef.once('value');
+      const regulars = snapshot.val();
 
-      if (found === undefined)
-      {
-        regulars.push(userId);
-      }
-      else
+      if (regulars.find(el => el === userId))
       {
         throw new Error('User is already a regular member of this group');
       }
+      else
+      {
+        regulars.push(userId);
+      }
+
       console.log(regulars);
 
-      admin.database().ref('/users/' + userId ).child('groupId').set(groupId);
-      admin.database().ref('groups/' + groupId + '/regulars').set(regulars);
-      return res.sendStatus(200);
-    }).catch((error) => {
+      let updates = {};
+      updates['groups/' + groupId + '/regulars'] = regulars;
+      updates['/users/' + userId + '/groupId'] = groupId;
+      return await admin.database().ref().update(updates);
+    }
+    catch (error)
+    {
       console.error(error.message)
       return res.status(403).send(error.message);
-    });
+    }
   }
   console.log('Group join content is missing');
   return res.status(400).send('Group join content is missing');
