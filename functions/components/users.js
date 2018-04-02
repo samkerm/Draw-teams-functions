@@ -35,7 +35,7 @@ users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (
       }).then(() =>
       {
         console.log('Initialization procesing val');
-       return reference.once("value");
+        return reference.once("value");
       }).then((snapshot) =>
       {
         console.log('Initialization successful with data snapshot', snapshot.val());

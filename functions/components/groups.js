@@ -73,7 +73,7 @@ groups.join = app.post('/groups/:groupId/join', async (req, res) => {
       const snapshot = await groupsRef.once('value');
       const regulars = snapshot.val();
 
-      if (regulars.find(el => el === userId))
+      if (regulars && regulars.find(el => el === userId))
       {
         throw new Error('User is already a regular member of this group');
       }
@@ -102,7 +102,8 @@ groups.join = app.post('/groups/:groupId/join', async (req, res) => {
 groups.find = app.get('/groups/:id', (req, res) => {
   console.log('Reached /groups');
 
-  if (req.params && req.params.id) {
+  if (req.params && req.params.id)
+  {
     const groupId = req.params.id;
 
     return admin.database()
@@ -119,4 +120,28 @@ groups.find = app.get('/groups/:id', (req, res) => {
      });
   }
   return res.status(400).send('Group groupId is missing');
+});
+
+groups.nextGame = app.post('/groups/:groupId/nextgame', async (req, res) => {
+  console.log('Reached groups/:groupId/nextgame');
+
+  console.log(req.body, req.params, req.params.groupId);
+  if (req.body && req.params && req.params.groupId)
+  {
+    const groupId = req.params.groupId;
+    const nextGame = req.body;
+    console.log(groupId, nextGame);
+
+    const groupsRef = admin.database().ref('groups/' + groupId);
+    // const snapshot = await groupsRef.once('value').val();
+    // snapshot.nextGame = nextGame
+    return groupsRef.update({ nextGame: nextGame }).then(() => {
+      console.log('Setting next game successful');
+      return res.status(200).send(true);
+    }).catch((error) => {
+      console.error('Setting next game failed: ', error.message);
+      return res.status(403).send(new Error('Initialization failed'));
+    });
+  }
+  return res.status(400).send('Next game creation content is missing');
 });
