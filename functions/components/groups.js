@@ -126,17 +126,13 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
     const nextGame = req.body;
     console.log(groupId, nextGame);
 
-    return admin.database()
-                .ref('groups/' + groupId)
-                .once('value')
-                .then((snapshot) =>
-    {
-      const nextGame = snapshot.val().nextGame;
-      return admin.database().ref('groups/' + groupId + '/nextGame').set(nextGame);
-    }).catch((error) => {
+    return admin.database().ref('groups/' + groupId + '/nextGame').set(nextGame)
+      .catch((error) => {
         console.error('Setting next game failed: ', error.message);
         return res.status(403).send(new Error('Initialization failed'));
-    }).then(res.status(200).send(true));
+      })
+      .then(res.status(200).send(true));
+      
   }
   return res.status(400).send('Next game creation content is missing');
 });
