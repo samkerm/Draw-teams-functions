@@ -136,3 +136,27 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
   }
   return res.status(400).send('Next game creation content is missing');
 });
+
+groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
+  console.log('Reached groups/:groupId/rsvp');
+
+  const RSVP = { 'YES': 'YES', 'NO': 'NO', 'NA': 'NA'};
+  Object.freeze(RSVP);
+
+  console.log(req.body, req.params, req.params.groupId);
+  if (req.body && req.body.rsvp && req.params && req.params.groupId) {
+
+    const groupId = req.params.groupId;
+    const { rsvp: status } = req.body;
+    console.log(groupId, status);
+
+    return admin.database().ref('groups/' + groupId + '/nextGame/rsvp').set(status)
+      .catch((error) => {
+        console.error('Setting rsvp failed: ', error.message);
+        return res.status(403).send(new Error('Initialization failed'));
+      })
+      .then(res.status(200).send(status));
+
+  }
+  return res.status(400).send('Next game creation content is missing');
+});
