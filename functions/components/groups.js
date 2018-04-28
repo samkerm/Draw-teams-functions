@@ -1,6 +1,7 @@
 'use strict';
 const admin = require('firebase-admin');
 const express = require('express');
+const _ = require('lodash');
 const app = express();
 
 const groups = module.exports;
@@ -140,23 +141,50 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
 groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
   console.log('Reached groups/:groupId/rsvp');
 
-  const RSVP = { 'YES': 'YES', 'NO': 'NO', 'NA': 'NA'};
-  Object.freeze(RSVP);
+  // const RSVP = { 'YES': 'YES', 'NO': 'NO', 'NA': 'NA'};
+  // Object.freeze(RSVP);
 
-  console.log(req.body, req.params, req.params.groupId);
-  if (req.body && req.body.rsvp && req.params && req.params.groupId) {
+  console.log(req.body, req.params, req.user);
+
+  if (req.body && req.body.rsvp && 
+      req.user && req.user.uid && 
+      req.params && req.params.groupId) {
 
     const groupId = req.params.groupId;
+    const userId = req.user.uid;
     const { rsvp: status } = req.body;
-    console.log(groupId, status);
+    console.log(groupId, userId, status);
 
-    return admin.database().ref('groups/' + groupId + '/nextGame/rsvp').set(status)
-      .catch((error) => {
-        console.error('Setting rsvp failed: ', error.message);
-        return res.status(403).send(new Error('Initialization failed'));
+    return admin.database()
+      .ref('groups/' + groupId + '/nextGame')
+      .once('value')
+      .then((dataSnapshot) => {
+        const nextGame = dataSnapshot.val();
+        const rsvpYes = nextGame.rsvpYes || [];
+        const rsvpNo = nextGame.rsvpNo || [];
+        _.remove(rsvpNo, (id) => id === userId);
+        _.remove(rsvpYes, (id) => id === userId);
+
+        switch (status) {
+          case 'YES':
+            rsvpYes.push(userId)
+            break;
+          case 'NO':
+            rsvpNo.push(userId)
+            break;
+          default:
+            break;
+        }
+
+        let updates = {};
+        updates['groups/' + groupId + '/nextGame/rsvpYes'] = rsvpYes;
+        updates['groups/' + groupId + '/nextGame/rsvpNo'] = rsvpNo;
+        return admin.database().ref().update(updates);
       })
-      .then(res.status(200).send(status));
-
-  }
+      .catch((error) => {
+        console.log(error);
+        return res.status(403).send(error.message);
+      }).then(res.status(200).send(status));
+    }
   return res.status(400).send('Next game creation content is missing');
 });
