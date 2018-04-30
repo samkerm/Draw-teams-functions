@@ -139,10 +139,6 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
 });
 
 groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
-  console.log('Reached groups/:groupId/rsvp');
-
-  // const RSVP = { 'YES': 'YES', 'NO': 'NO', 'NA': 'NA'};
-  // Object.freeze(RSVP);
 
   console.log(req.body, req.params, req.user);
 
