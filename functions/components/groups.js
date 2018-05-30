@@ -124,7 +124,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
   if (req.body && req.params && req.params.groupId)
   {
     const groupId = req.params.groupId;
-    const nextGame = req.body;
+    const nextGame = JSON.parse(req.body);
     console.log(groupId, nextGame);
 
     return admin.database().ref('groups/' + groupId + '/nextGame').set(nextGame)
@@ -140,15 +140,15 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
 
 groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
 
-  console.log(req.body, req.params, req.user);
+  // console.log(req.body, req.params, req.user);
 
-  if (req.body && req.body.rsvp && 
+  if (req.body &&
       req.user && req.user.uid && 
       req.params && req.params.groupId) {
 
     const groupId = req.params.groupId;
     const userId = req.user.uid;
-    const { rsvp: status } = req.body;
+    const { rsvp: status } = JSON.parse(req.body);
     console.log(groupId, userId, status);
 
     return admin.database()
@@ -180,7 +180,8 @@ groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
       .catch((error) => {
         console.log(error);
         return res.status(403).send(error.message);
-      }).then(res.status(200).send(status));
+      })
+      .then(res.status(200).send({status}));
     }
   return res.status(400).send('Next game creation content is missing');
 });
