@@ -59,7 +59,9 @@ users.getUserInfo = app.get('/getUserInfo', (req, res) => {
     .then((snapshot) =>
     {
       console.log('successfully received user data', snapshot.val());
-      return res.send(snapshot);
+      const userInfo = snapshot.val();
+      userInfo.userId = userId;
+      return res.send(userInfo);
     }).catch((error) => {
       console.log('User data retrival failed: ', error.message);
       return res.status(403).send(error);
