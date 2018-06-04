@@ -55,14 +55,21 @@ users.getUserInfo = app.get('/getUserInfo', (req, res) => {
   if (req.query && req.query.userId)
   {
     const userId = req.query.userId;
+    let userInfo;
     return admin.database().ref('users/' + userId).once('value')
     .then((snapshot) =>
     {
       console.log('successfully received user data', snapshot.val());
-      const userInfo = snapshot.val();
+      userInfo = snapshot.val();
       userInfo.userId = userId;
+      return admin.auth().getUser(userId)
+    })
+    .then((firebaseUser) =>
+    {
+      userInfo.photoURL = firebaseUser.photoURL || '';
       return res.send(userInfo);
-    }).catch((error) => {
+    })
+    .catch((error) => {
       console.log('User data retrival failed: ', error.message);
       return res.status(403).send(error);
     });
