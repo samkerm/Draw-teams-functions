@@ -23,6 +23,10 @@ app.use(groups.rsvp);
 app.use(users.updateDisplayName);
 app.use(users.initializeUserWithRatings);
 app.use(users.getUserInfo);
+
+// CLubhouse integration
+
+
 // This HTTPS endpoint can only be accessed by your Firebase Users.
 // Requests need to be authorized by providing an `Authorization` HTTP header
 // with value `Bearer <Firebase ID Token>`.
