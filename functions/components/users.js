@@ -28,10 +28,11 @@ users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (
   console.log(req.body, req.user);
   if (req.body, req.user)
   {
+    const body = JSON.parse(req.body);
     const reference = admin.database().ref('users/' + req.user.uid);
     return reference.set({
-        displayName: req.body.displayName,
-        ratings: req.body.ratings,
+        displayName: body.displayName,
+        ratings: body.ratings,
       }).then(() =>
       {
         console.log('Initialization procesing val');
