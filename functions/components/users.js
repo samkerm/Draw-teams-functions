@@ -25,27 +25,36 @@ users.updateDisplayName = app.post('/users/updateDisplayName', (req, res) => {
 users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (req, res) => {
   console.log('Reached users/initializeUserWithRatings');
 
-  console.log(req.body, req.user);
   if (req.body, req.user)
   {
     const body = JSON.parse(req.body);
-    const reference = admin.database().ref('users/' + req.user.uid);
-    return reference.set({
+
+    
+    return admin.auth().updateUser(req.user.uid, {
         displayName: body.displayName,
-        ratings: body.ratings,
-      }).then(() =>
+      })
+      .then((userRecord) =>
       {
+        console.log('Successfully updated user', userRecord.toJSON());
+        const reference = admin.database().ref('users/' + req.user.uid);
+        return reference.set({
+          displayName: body.displayName,
+          ratings: body.ratings,
+        });
+      })
+      .then(() => {
         console.log('Initialization procesing val');
         return reference.once("value");
-      }).then((snapshot) =>
-      {
+      })
+      .then((snapshot) => {
         console.log('Initialization successful with data snapshot', snapshot.val());
         return res.send(snapshot.val());
-      }).catch((error) =>
-      {
-        console.log('Initialization failed: ', error.message);
-        return res.status(403).send(new Error('Initialization failed'));
-      });
+      })
+      .catch((error) =>
+        {
+          console.log('Initialization failed: ', error.message);
+          return res.status(403).send(new Error('Initialization failed'));
+        });
   }
   return res.status(400).send('Initialization body or user is missing');
 });
