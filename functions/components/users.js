@@ -10,8 +10,9 @@ users.updateDisplayName = app.post('/users/updateDisplayName', (req, res) => {
 
   if (req.body, req.user)
   {
-    console.log(`Requested displayName update: ${req.body.displayName}, by user: `, req.user.uid);
-    return admin.auth().updateUser(req.user.uid, {displayName: req.body.displayName}).then((user) => {
+    const body = JSON.parse(req.body);
+    console.log(`Requested displayName update: ${body.displayName}, by user: `, req.user.uid);
+    return admin.auth().updateUser(req.user.uid, {displayName: body.displayName}).then((user) => {
       console.log('Update successful');
       return res.send(user);
     }).catch((error) => {
@@ -29,7 +30,6 @@ users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (
   {
     const body = JSON.parse(req.body);
 
-    
     return admin.auth().updateUser(req.user.uid, {
         displayName: body.displayName,
       })

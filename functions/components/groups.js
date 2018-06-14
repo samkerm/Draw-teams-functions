@@ -35,28 +35,28 @@ groups.create = app.post('/groups/create', (req, res) => {
   console.log('Reached groups/create');
 
   if (req.body && req.user) {
-    const groupData = req.body;
-      const userId = req.user.uid;
-      console.log(req.user);
+    const groupData = JSON.parse(req.body);
+    const userId = req.user.uid;
+    console.log(req.user);
 
-      const groupsRef = admin.database().ref('groups/');
-      const newGroupKey = groupsRef.push().key;
+    const groupsRef = admin.database().ref('groups/');
+    const newGroupKey = groupsRef.push().key;
 
-      // Write the new post's data simultaneously in the posts list and the user's post list.
-      let updates = {};
-      updates['/groups/' + newGroupKey] = groupData;
-      updates['/users/' + userId + '/groupId'] = newGroupKey;
-      // updates['/groups' + newGroupKey + '/members'] = {regular: app.state.userId};
+    // Write the new post's data simultaneously in the posts list and the user's post list.
+    let updates = {};
+    updates['/groups/' + newGroupKey] = groupData;
+    updates['/users/' + userId + '/groupId'] = newGroupKey;
+    // updates['/groups' + newGroupKey + '/members'] = {regular: app.state.userId};
 
-      return admin.database().ref().update(updates)
-      .then(() => {
-        console.log('Updated');
-        return res.send(true);
-      })
-      .catch((error) => {
-        console.log('Couldnt update');
-        return res.status(403).send(error);
-      });
+    return admin.database().ref().update(updates)
+    .then(() => {
+      console.log('Updated');
+      return res.send(true);
+    })
+    .catch((error) => {
+      console.log('Couldnt update');
+      return res.status(403).send(error);
+    });
   }
   return res.status(400).send('Group creation content is missing');
 });
