@@ -10,8 +10,9 @@ users.updateDisplayName = app.post('/users/updateDisplayName', (req, res) => {
 
   if (req.body, req.user)
   {
-    console.log(`Requested displayName update: ${req.body.displayName}, by user: `, req.user.uid);
-    return admin.auth().updateUser(req.user.uid, {displayName: req.body.displayName}).then((user) => {
+    const body = JSON.parse(req.body);
+    console.log(`Requested displayName update: ${body.displayName}, by user: `, req.user.uid);
+    return admin.auth().updateUser(req.user.uid, {displayName: body.displayName}).then((user) => {
       console.log('Update successful');
       return res.send(user);
     }).catch((error) => {
@@ -28,27 +29,22 @@ users.initializeUserWithRatings = app.post('/users/initializeUserWithRatings', (
   if (req.body, req.user)
   {
     const body = JSON.parse(req.body);
-
-    
+    let newUser;
     return admin.auth().updateUser(req.user.uid, {
         displayName: body.displayName,
       })
       .then((userRecord) =>
       {
-        console.log('Successfully updated user', userRecord.toJSON());
-        const reference = admin.database().ref('users/' + req.user.uid);
-        return reference.set({
+        newUser = userRecord.toJSON();
+        console.log('Successfully updated user', newUser);
+        return admin.database().ref('users/' + newUser.uid).set({
           displayName: body.displayName,
           ratings: body.ratings,
         });
       })
       .then(() => {
-        console.log('Initialization procesing val');
-        return reference.once("value");
-      })
-      .then((snapshot) => {
-        console.log('Initialization successful with data snapshot', snapshot.val());
-        return res.send(snapshot.val());
+        console.log('Initialization processed');
+        return res.status(200).send(newUser);
       })
       .catch((error) =>
         {
