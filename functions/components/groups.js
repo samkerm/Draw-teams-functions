@@ -143,7 +143,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
 
 groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
 
-  // console.log(req.body, req.params, req.user);
+  console.log('Reached /groups/:groupId/rsvp');
 
   if (req.body &&
       req.user && req.user.uid && 
@@ -186,5 +186,74 @@ groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
       })
       .then(res.status(200).send({status}));
     }
+  return res.status(400).send('Next game creation content is missing');
+});
+
+groups.rsvp = app.post('/groups/:groupId/memberStatus', async (req, res) => {
+  console.log('Reached /groups/:groupId/memberStatus');
+
+  if (req.user && req.user.uid && 
+      req.params && req.params.groupId &&
+      req.query && req.query.status) {
+
+    const groupId = req.params.groupId;
+    const userId = req.user.uid; // Make sure user requesting belongs to the group
+    const status = req.query.status;
+
+    console.log(groupId, userId, status);
+    let group;
+    // Find the group from the id
+    return admin.database()
+      .ref('groups/' + groupId)
+      .once('value')
+      .then((dataSnapshot) => {
+        group = dataSnapshot.val();
+        
+        // Combine all members to figure out if requester belongs to the group
+        let allMembers = [];
+        if (group && group.regulars) {
+          allMembers = allMembers.concat(group.regulars)
+        }
+        if (group && group.reserves) {
+          allMembers = allMembers.concat(group.reserves)
+        }
+        if (!allMembers.some(id => id === userId)) {
+          return res.status(403).send(new Error('The requester is not a member of this group. Can not change status of this member.'))
+        }
+        
+        // Remove the member status and append it to the right one
+        const regulars = group.regulars || [];
+        const reserves = group.reserves || [];
+        _.remove(regulars, (id) => id === userId);
+        _.remove(reserves, (id) => id === userId);
+
+        switch (status) {
+          case 'regular':
+            regulars.push(userId)
+            break;
+          case 'reserve':
+            reserves.push(userId)
+            break;
+          default:
+            break;
+        }
+
+        let updates = {};
+        updates['groups/' + groupId + '/regulars'] = regulars;
+        updates['groups/' + groupId + '/reserves'] = reserves;
+
+        group.regulars = regulars;
+        group.reserves = reserves;
+
+        return admin.database().ref().update(updates);
+      })
+      .then(() => {
+        return res.status(200).send({group});
+      })
+      .catch((error) => {
+        console.log(error);
+        return res.status(403).send(error.message);
+      });
+  }
   return res.status(400).send('Next game creation content is missing');
 });
