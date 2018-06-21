@@ -189,7 +189,7 @@ groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
   return res.status(400).send('Next game creation content is missing');
 });
 
-groups.rsvp = app.post('/groups/:groupId/memberStatus', async (req, res) => {
+groups.rsvp = app.post('/groups/:groupId/memberStatus', (req, res) => {
   console.log('Reached /groups/:groupId/memberStatus');
 
   if (req.user && req.user.uid && 
