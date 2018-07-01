@@ -2,6 +2,8 @@
 const admin = require('firebase-admin');
 const express = require('express');
 const _ = require('lodash');
+// const schedule = require('node-schedule');
+// const notification = require('./notifications');
 const app = express();
 
 const groups = module.exports;
@@ -130,13 +132,51 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
     const nextGame = JSON.parse(req.body);
     console.log(groupId, nextGame);
 
-    return admin.database().ref('groups/' + groupId + '/nextGame').set(nextGame)
-      .catch((error) => {
-        console.error('Setting next game failed: ', error.message);
-        return res.status(403).send(new Error('Initialization failed'));
-      })
-      .then(res.status(200).send(true));
-      
+    // TODO: Validate next game data is valid before putting it in
+    return admin.database().ref('groups/' + groupId + '/nextGame')
+    .set(nextGame)
+    .then(() => {
+      /*
+      // Set up a schedueler
+      // Unique keys for each event
+      const gameKey       = `${groupId}G`;
+      const regularsKey   = `${groupId}Rg`;
+      const reservessKey  = `${groupId}Rs`;
+
+      // TODO: Get users regTokens (deviceTokens) to send notifications to
+      // Send push notification
+      if (nextGame.gameDate)
+      {
+        const date = new Date(nextGame.gameDate);
+        const j = schedule.scheduleJob(gameKey, date, () =>
+        {
+          notification.sendPushNotification('Game is ended', regTokens)
+        });
+      }
+      if (nextGame.regularsNotification)
+      {
+        const date = new Date(nextGame.regularsNotification);
+        const j = schedule.scheduleJob(regularsKey, date, () =>
+        {
+          notification.sendPushNotification('Notify regulars', regTokens)
+        });
+      }
+      if (nextGame.reservesNotification)
+      {
+        const date = new Date(nextGame.reservesNotification);
+        const j = schedule.scheduleJob(reservessKey, date, () =>
+        {
+          notification.sendPushNotification('Notify reserves', regTokens)
+        });
+      }
+      */
+      return true;
+    })
+    .then(res.status(200).send(true))
+    .catch((error) => {
+      console.error('Setting next game failed: ', error.message);
+      return res.status(403).send(new Error('Initialization failed'));
+    });
   }
   return res.status(400).send('Next game creation content is missing');
 });
@@ -180,11 +220,11 @@ groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
         updates['groups/' + groupId + '/nextGame/rsvpNo'] = rsvpNo;
         return admin.database().ref().update(updates);
       })
+      .then(res.status(200).send({status}))
       .catch((error) => {
         console.log(error);
         return res.status(403).send(error.message);
-      })
-      .then(res.status(200).send({status}));
+      });
     }
   return res.status(400).send('Next game creation content is missing');
 });

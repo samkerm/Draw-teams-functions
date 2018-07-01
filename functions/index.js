@@ -20,6 +20,7 @@ app.use(groups.join);
 app.use(groups.find);
 app.use(groups.nextGame);
 app.use(groups.rsvp);
+// app.use(users.registerDeviceToken);
 app.use(users.updateDisplayName);
 app.use(users.initializeUserWithRatings);
 app.use(users.getUserInfo);
@@ -32,16 +33,15 @@ app.use(users.getUserInfo);
 // with value `Bearer <Firebase ID Token>`.
 exports.app = functions.https.onRequest(app);
 
-exports.replicateRatings = functions.database.ref('/users/{userId}/ratings').onWrite((event) => {
+exports.replicateRatings = functions.database.ref('/users/{userId}/ratings').onWrite((change, context) => {
   console.log('Database triggered functions');
   console.log(event);
 
   // Grab the current value of what was written to the Realtime Database.
-  const ratings = event.data.val();
-  const userId = event.params.userId;
-  // const admin = event.data.adminRef;
+  const ratings = change.after.val();
+  const userId = context.params.userId;
 
-  console.log('Creating a ratings object', event.params.userId, ratings);
+  console.log('Creating a ratings object', context.params.userId, ratings);
   const newRatings = {
           userId: userId,
           ratedBy: userId,

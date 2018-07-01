@@ -8,7 +8,7 @@ const users = module.exports;
 users.updateDisplayName = app.post('/users/updateDisplayName', (req, res) => {
   console.log('Reached users/updateDisplayName');
 
-  if (req.body, req.user)
+  if (req.body && req.user)
   {
     const body = JSON.parse(req.body);
     console.log(`Requested displayName update: ${body.displayName}, by user: `, req.user.uid);
@@ -82,3 +82,21 @@ users.getUserInfo = app.get('/getUserInfo', (req, res) => {
   }
   return res.status(400).send('User id is missing in the query');
 });
+
+// users.registerDeviceToken = app.post('/users/registerDeviceToken', (req, res) => {
+//   console.log('Reached users/registerDeviceToken');
+
+//   if (req.body && req.user)
+//   {
+//     const body = JSON.parse(req.body);
+//     return admin.database().ref('users/' + req.user.uid).set({
+//       deviceToken: body.deviceToken
+//     })
+//     .then(res.send(true))
+//     .catch((error) => {
+//       console.log('Device token registeration failed: ', error.message);
+//       return res.status(403).send(new Error('Device token registeration failed'));
+//     });
+//   }
+//   return res.status(400).send('Device token registeration body or user is missing');
+// });
