@@ -20,7 +20,7 @@ app.use(groups.join);
 app.use(groups.find);
 app.use(groups.nextGame);
 app.use(groups.rsvp);
-// app.use(users.registerDeviceToken);
+app.use(users.registerDeviceToken);
 app.use(users.updateDisplayName);
 app.use(users.initializeUserWithRatings);
 app.use(users.getUserInfo);

@@ -2,8 +2,8 @@
 const admin = require('firebase-admin');
 const express = require('express');
 const _ = require('lodash');
-// const schedule = require('node-schedule');
-// const notification = require('./notifications');
+const schedule = require('node-schedule');
+const notification = require('./notifications');
 const app = express();
 
 const groups = module.exports;
@@ -136,7 +136,6 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
     return admin.database().ref('groups/' + groupId + '/nextGame')
     .set(nextGame)
     .then(() => {
-      /*
       // Set up a schedueler
       // Unique keys for each event
       const gameKey       = `${groupId}G`;
@@ -169,7 +168,6 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
           notification.sendPushNotification('Notify reserves', regTokens)
         });
       }
-      */
       return true;
     })
     .then(res.status(200).send(true))
