@@ -122,6 +122,22 @@ groups.find = app.get('/groups/:id', (req, res) => {
   return res.status(400).send('Group groupId is missing');
 });
 
+function getDeviceTokenForUser(userId)
+{
+  return admin.database().ref('users/' + userId).once('value')
+  .then((snapshot) => {
+    const user = snapshot.val();
+    if (user && user.deviceToken && user.deviceToken.token)
+    {
+      return user.deviceToken.token;
+    }
+    return new Error('Could not find user device token.')
+  })
+  .catch((error) => {
+    return error;
+  })
+}
+
 groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
   console.log('Reached groups/:groupId/nextgame');
 
@@ -136,20 +152,42 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
     return admin.database().ref('groups/' + groupId + '/nextGame')
     .set(nextGame)
     .then(() => {
+      return admin.database().ref('groups/' + groupId).once('value')
+    })
+    .then((snapshot) => {
+      console.log('successfully received group data', snapshot.val());
+      return snapshot.val();
+    })
+    .then((group) => {
+      let regularsTokens = [];
+      let reservedTokens = [];
+      if (group && group.regulars)
+      {
+        regularsTokens = group.regulars.map(user => getDeviceTokenForUser(user));
+      }
+      if (group && group.reserves) {
+        regularsTokens = group.reserves.map(user => getDeviceTokenForUser(user));
+      }
+      return {
+        'regularsTokens': regularsTokens,
+        'reservedTokens': reservedTokens
+      };
+    })
+    .then((tokens) => {
       // Set up a schedueler
       // Unique keys for each event
       const gameKey       = `${groupId}G`;
       const regularsKey   = `${groupId}Rg`;
       const reservessKey  = `${groupId}Rs`;
 
-      // TODO: Get users regTokens (deviceTokens) to send notifications to
       // Send push notification
       if (nextGame.gameDate)
       {
         const date = new Date(nextGame.gameDate);
         const j = schedule.scheduleJob(gameKey, date, () =>
         {
-          notification.sendPushNotification('Game is ended', regTokens)
+          const allTokens = tokens.regularsTokens.concat(tokens.reservedTokens);
+          notification.sendPushNotification('Game is ended', allTokens)
         });
       }
       if (nextGame.regularsNotification)
@@ -157,7 +195,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
         const date = new Date(nextGame.regularsNotification);
         const j = schedule.scheduleJob(regularsKey, date, () =>
         {
-          notification.sendPushNotification('Notify regulars', regTokens)
+          notification.sendPushNotification('Notify regulars', tokens.regularsTokens)
         });
       }
       if (nextGame.reservesNotification)
@@ -165,7 +203,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
         const date = new Date(nextGame.reservesNotification);
         const j = schedule.scheduleJob(reservessKey, date, () =>
         {
-          notification.sendPushNotification('Notify reserves', regTokens)
+          notification.sendPushNotification('Notify reserves', tokens.reservedTokens)
         });
       }
       return true;
