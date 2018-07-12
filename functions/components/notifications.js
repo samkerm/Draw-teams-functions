@@ -10,14 +10,17 @@ exports.sendPushNotification = (msg, regTokens) => {
             key: `${msg}`
         }
     });
-    // Actually send the message
-    sender.send(message, {
-            registrationTokens: regTokens
-        })
-        .then((response) => {
-            return response;
-        })
-        .catch((error) => {
-            return error;
-        });
+    Promise.all(regTokens).then((tokens) => {
+        console.log(tokens);
+        return tokens;
+    })
+    .then((tokens) => {
+        return sender.send(message, { registrationTokens: tokens })
+    })
+    .then((response) => {
+        return response;
+    })
+    .catch((error) => {
+        return error;
+    })
 };

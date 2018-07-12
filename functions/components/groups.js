@@ -124,18 +124,20 @@ groups.find = app.get('/groups/:id', (req, res) => {
 
 function getDeviceTokenForUser(userId)
 {
-  return admin.database().ref('users/' + userId).once('value')
-  .then((snapshot) => {
-    const user = snapshot.val();
-    if (user && user.deviceToken && user.deviceToken.token)
-    {
-      return user.deviceToken.token;
-    }
-    return new Error('Could not find user device token.')
-  })
-  .catch((error) => {
-    return error;
-  })
+  return new Promise((resolve, reject) => {
+    admin.database().ref('users/' + userId).once('value')
+      .then((snapshot) => {
+        const user = snapshot.val();
+        if (user && user.deviceToken && user.deviceToken.token) {
+          return resolve(user.deviceToken.token);
+        }
+        return reject(new Error('Could not find user device token.'))
+      })
+      .catch((error) => {
+        return reject(error);
+      })
+  });
+  
 }
 
 groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
@@ -180,6 +182,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
       const regularsKey   = `${groupId}Rg`;
       const reservessKey  = `${groupId}Rs`;
 
+      console.log('Tokens\n', tokens);
       // Send push notification
       if (nextGame.gameDate)
       {
@@ -187,6 +190,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
         const j = schedule.scheduleJob(gameKey, date, () =>
         {
           const allTokens = tokens.regularsTokens.concat(tokens.reservedTokens);
+          console.log('Notifying all users:\n', allTokens);
           notification.sendPushNotification('Game is ended', allTokens)
         });
       }
@@ -195,6 +199,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
         const date = new Date(nextGame.regularsNotification);
         const j = schedule.scheduleJob(regularsKey, date, () =>
         {
+          console.log('Notifying regulars:\n', tokens.regularsTokens);
           notification.sendPushNotification('Notify regulars', tokens.regularsTokens)
         });
       }
@@ -203,6 +208,7 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
         const date = new Date(nextGame.reservesNotification);
         const j = schedule.scheduleJob(reservessKey, date, () =>
         {
+          console.log('Notifying reserves:\n', tokens.reservedTokens);
           notification.sendPushNotification('Notify reserves', tokens.reservedTokens)
         });
       }
