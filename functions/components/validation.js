@@ -5,7 +5,6 @@
 // `Authorization: Bearer <Firebase ID Token>`.
 // when decoded successfully, the ID Token content will be added as `req.user`.
 
-const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 admin.initializeApp({
