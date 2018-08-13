@@ -82,3 +82,18 @@ users.getUserInfo = app.get('/getUserInfo', (req, res) => {
   }
   return res.status(400).send('User id is missing in the query');
 });
+
+users.receivedNewDeviceToken = app.post('/users/receivedNewDeviceToken', (req, res) => {
+  console.log('Reached users/receivedNewToken');
+  console.log(req.user);
+  if (req && req.body && 
+      req.user && req.user.user_id)
+  {
+    const token = JSON.parse(req.body);
+    const userId = req.user.user_id;
+    console.log(`Received token id: ${token} for user: ${userId}`);
+    return admin.database().ref('users/' + userId).update({ token: token})
+    .then(res.status(200).send(true));
+  }
+  return res.status(400).send('User id, or token is missing in the request');
+});
