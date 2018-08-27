@@ -8,7 +8,9 @@ const users = require('./components/users');
 const express = require('express');
 const cors = require('cors')({origin: true});
 const app = express();
-
+const moment = require('moment-timezone');
+const _ = require('lodash');
+const notifications = require('./components/notifications');
 
 app.use(cors);
 app.use(validate);
@@ -18,11 +20,9 @@ app.use(groups.join);
 app.use(groups.find);
 app.use(groups.nextGame);
 app.use(groups.rsvp);
-app.use(users.registerDeviceToken);
 app.use(users.updateDisplayName);
 app.use(users.initializeUserWithRatings);
 app.use(users.getUserInfo);
-app.use(users.receivedNewDeviceToken);
 
 // CLubhouse integration
 
@@ -82,32 +82,74 @@ exports.replicateRatings = functions.database.ref('/users/{userId}/ratings').onW
   // return admin.database().ref('ratings/').push().set(newRatings);*/
 });
 
+function getDeviceTokenForUser(userId) {
+  return new Promise((resolve, reject) => {
+    admin.database().ref('users/' + userId).once('value')
+      .then((snapshot) => {
+        const user = snapshot.val();
+        if (user && user.token) {
+          return resolve(user.token);
+        }
+        return reject(new Error('Could not find user device token.'))
+      })
+      .catch((error) => {
+        return reject(error);
+      })
+  });
+
+}
+
+function sendPushNotificationTo(userIds)
+{
+  if (!_.isEmpty(userIds))
+  {
+    const userTokens = userIds.map(id => getDeviceTokenForUser(id));
+    notifications.sendPushNotification('RSVP pending', 'Please confirm your attendance for next game to keep your spot', userTokens)
+  }
+}
+
 exports.minute_job =
   functions.pubsub.topic('minute-tick').onPublish((event) => {
 
-    /*
-    console.log("This job is ran every minute!")
-    const token = 'cFPkflrjqpE:APA91bGbFC87o1BUTQNm-7lsBaDa4xqyOOG_yh-5rsT-aIPg_tVhKENoNYw13sr-G0Qaw7HbNM_ryCnDTf6vOg-LkayDwrKUCdf-KLmWlyLv2J8wqwLgl8VPWa0F5FvRo4lV9IP3f-zWcvwNlAZLwt_llphEceerbA';
-    var message = {
-      notification: {
-        title: 'Urgent action needed!',
-        body: 'Urgent action is needed to prevent your account from being disabled!'
-      },
-      data: {
-        score: '850',
-        time: '2:45'
-      },
-      token,
-    };
+    console.log('\n\n\n\n\n\nminute_job:\n', moment().tz('America/Los_Angeles').format('dddd, YYYY-MMM-DD kk:mm:ss'), '\n');
 
-    admin.messaging().send(message)
-      .then((response) => {
-        console.log('Successfully sent message:', response);
+    // TODO: Find a way to improve the query to include only groups that have nextGame 
+    // and notification time matches
+    admin.database().ref('groups').once('value')
+    .then((snapshot) =>
+      {
+        if (snapshot && snapshot.val())
+        {
+          const groups = _.values(snapshot.val());
+          const goupsWithGames = groups.filter((group) => 
+          {
+            // 'dddd, YYYY-MMM-DD kk:mm' formatting comes from the app. It needs to be a match
+            return (group.nextGame &&
+              group.nextGame.regularsNotification &&
+              group.nextGame.regularsNotification === moment().tz('America/Los_Angeles').format('dddd, YYYY-MMM-DD kk:mm'));
+          });
+
+          goupsWithGames.forEach((group) =>
+          {
+            // Find out if any of the regulars have already RSVPed
+            const notifyingIds = group.regulars.filter((id) => 
+            {
+              const rsvpYes = group.nextGame.rsvpYes || [];
+              const rsvpNo = group.nextGame.rsvpNo || [];
+              const totalRSVP = rsvpYes.concat(rsvpNo);
+              if (!_.isEmpty(totalRSVP))
+              {
+                return !totalRSVP.some(id);
+              }
+              return true;
+            });
+            sendPushNotificationTo(notifyingIds);
+          })
+        }
         return true;
-      })
-      .catch((error) => {
-        console.log('Error sending message:', error);
-        return error;
-      });
-      */
+    })
+    .catch(error)
+    {
+      return error;
+    }
   });
