@@ -82,30 +82,57 @@ exports.replicateRatings = functions.database.ref('/users/{userId}/ratings').onW
   // return admin.database().ref('ratings/').push().set(newRatings);*/
 });
 
-function getDeviceTokenForUser(userId) {
-  return new Promise((resolve, reject) => {
-    admin.database().ref('users/' + userId).once('value')
-      .then((snapshot) => {
-        const user = snapshot.val();
-        if (user && user.token) {
-          return resolve(user.token);
-        }
-        return reject(new Error('Could not find user device token.'))
-      })
-      .catch((error) => {
-        return reject(error);
-      })
+function handleRegularsNotification(group)
+{
+  const goupsWithGames = groups.filter((group) => {
+    // 'dddd, YYYY-MMM-DD kk:mm' formatting comes from the app. It needs to be a match
+    return (group.nextGame &&
+      group.nextGame.regularsNotification &&
+      group.nextGame.regularsNotification === moment().tz('America/Los_Angeles').format('dddd, YYYY-MMM-DD kk:mm'));
   });
 
+  goupsWithGames.forEach((group) => {
+    // Find out if any of the regulars have already RSVPed
+    const notifyingIds = group.regulars.filter((id) => {
+      const rsvpYes = group.nextGame.rsvpYes || [];
+      const rsvpNo = group.nextGame.rsvpNo || [];
+      const totalRSVP = rsvpYes.concat(rsvpNo);
+      if (!_.isEmpty(totalRSVP)) {
+        return !totalRSVP.some(id);
+      }
+      return true;
+    });
+    notifications.sendPushNotificationTo('RSVP pending', 'Please confirm your attendance for next game to keep your spot', notifyingIds);
+  })
 }
 
-function sendPushNotificationTo(userIds)
+function handleReservesNotification(groups) {
+  const goupsWithGames = groups.filter((group) => {
+    // 'dddd, YYYY-MMM-DD kk:mm' formatting comes from the app. It needs to be a match
+    return (group.nextGame &&
+      group.nextGame.reservesNotification &&
+      group.nextGame.reservesNotification === moment().tz('America/Los_Angeles').format('dddd, YYYY-MMM-DD kk:mm'));
+  });
+
+  goupsWithGames.forEach((group) => {
+    notifications.sendPushNotificationTo(`RSVP opened', 'RSVP is opened to reserves of ${group.name || 'Your Group'}`, group.reserves);
+  })
+}
+
+function processEndGame(groups)
 {
-  if (!_.isEmpty(userIds))
-  {
-    const userTokens = userIds.map(id => getDeviceTokenForUser(id));
-    notifications.sendPushNotification('RSVP pending', 'Please confirm your attendance for next game to keep your spot', userTokens)
-  }
+  const goupsWithGamesEnded = groups.filter((group) => {
+    // 'dddd, YYYY-MMM-DD kk:mm' formatting comes from the app. It needs to be a match
+    return (group.nextGame &&
+      group.nextGame.gameDate &&
+      group.nextGame.gameDate === moment().tz('America/Los_Angeles').format('dddd, YYYY-MMM-DD kk:mm'));
+  });
+  // .
+  // .
+  // .
+  // .
+  // .
+  // Process resettings.
 }
 
 exports.minute_job =
@@ -121,30 +148,9 @@ exports.minute_job =
         if (snapshot && snapshot.val())
         {
           const groups = _.values(snapshot.val());
-          const goupsWithGames = groups.filter((group) => 
-          {
-            // 'dddd, YYYY-MMM-DD kk:mm' formatting comes from the app. It needs to be a match
-            return (group.nextGame &&
-              group.nextGame.regularsNotification &&
-              group.nextGame.regularsNotification === moment().tz('America/Los_Angeles').format('dddd, YYYY-MMM-DD kk:mm'));
-          });
-
-          goupsWithGames.forEach((group) =>
-          {
-            // Find out if any of the regulars have already RSVPed
-            const notifyingIds = group.regulars.filter((id) => 
-            {
-              const rsvpYes = group.nextGame.rsvpYes || [];
-              const rsvpNo = group.nextGame.rsvpNo || [];
-              const totalRSVP = rsvpYes.concat(rsvpNo);
-              if (!_.isEmpty(totalRSVP))
-              {
-                return !totalRSVP.some(id);
-              }
-              return true;
-            });
-            sendPushNotificationTo(notifyingIds);
-          })
+          handleRegularsNotification(groups);
+          handleReservesNotification(groups);
+          processEndGame(groups)
         }
         return true;
     })

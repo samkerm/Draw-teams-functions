@@ -2,7 +2,6 @@
 const admin = require('firebase-admin');
 const express = require('express');
 const _ = require('lodash');
-const schedule = require('node-schedule');
 const notification = require('./notifications');
 const app = express();
 
@@ -145,6 +144,119 @@ groups.nextGame = app.post('/groups/:groupId/nextgame', (req, res) => {
   return res.status(400).send('Next game creation content is missing');
 });
 
+function evaluateUsersByRatings(users) {
+  /* Each user will get a total score based on their ratings
+  - Defence     2 points
+  - Attack      1 point
+  - Speed       3 points
+  - Pass        1 point
+  - Dribble     2 points
+  - Goalkeeping 1 point
+  ----------------------
+  Total         100 points
+  
+  New feature:
+  - Endurance   2 points
+  */
+
+  const defenceWeight   = 2;
+  const attackWeight    = 1;
+  const speedWeight     = 3;
+  const passWeight      = 2;
+  const dribbleWeight   = 2;
+  const goalieWeight    = 1;
+
+  users.map((user) => {
+    let total = 0;
+    total += Number(user.ratings.defence || 0) * defenceWeight;
+    total += Number(user.ratings.attack || 0) * attackWeight;
+    total += Number(user.ratings.speed || 0) * speedWeight;
+    total += Number(user.ratings.pass || 0) * passWeight;
+    total += Number(user.ratings.dribble || 0) * dribbleWeight;
+    total += Number(user.ratings.goalie || 0) * goalieWeight;
+    user['total'] = total;
+    return user;
+  })
+
+  // sort by total score highest first
+  users = users.sort((a, b) => {
+    return b.total - a.total;
+  });
+
+  return users;
+}
+
+function getUserRatingsSorted(userIds) {
+  return Promise.all(userIds.map(id => {
+    return admin.database().ref().child('users').child(id).once('value').then((s) => {
+      const user = s.val();
+      user.id = id;
+      return user;
+    });
+  }));
+}
+
+function distributePlayersInTeams(users)
+{
+  const teamA = [];
+  const teamB = [];
+  const isOddNumberedTeams = (users.length / 2) % 2 === 0;
+  const lastUser = users.length - 1;
+
+  // Add best and worst
+  for (let i = 0; i < users.length/2 ; i++) {
+    const best = i;
+    const worst = lastUser - i;
+    // All even numbers in team A
+    if (i % 2 === 0)
+    {
+      if (isOddNumberedTeams && worst - best === 1)
+      {
+        teamATotal = teamA.reduce(((a, b) => a + b), 0);
+        teamBTotal = teamB.reduce(((a, b) => a + b), 0);
+        if (teamATotal > teamBTotal)
+        {
+          teamB.push(users[best].id);
+          teamA.push(users[worst].id);
+        }
+        else
+        {
+          teamA.push(users[best].id);
+          teamB.push(users[worst].id);
+        }
+      }
+      else 
+      {
+        teamA.push(users[best].id);
+        teamA.push(users[worst].id);
+      }
+    } 
+    // All odd numbers in team B
+    else 
+    {
+      teamB.push(users[best].id);
+      teamB.push(users[worst].id);
+    }
+  }
+
+  // All users have the same groupId, so its easily fetched.
+  const groupId = users[0].groupId;
+  return admin.database().ref('groups/' + groupId + '/nextGame').update({
+    teamA,
+    teamB
+  });
+}
+
+function prepareGameForStart(userIds) {
+  getUserRatingsSorted(userIds)
+  .then((users) => evaluateUsersByRatings(users))
+  .then((playerAndRatings) => distributePlayersInTeams(playerAndRatings))
+  .then(() => notification.sendPushNotificationTo('Teams have been selected', 'Log in to your group to see your team', userIds))
+  .catch((error) => {
+    console.error(error);
+  });
+}
+
 groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
 
   console.log('Reached /groups/:groupId/rsvp');
@@ -158,13 +270,17 @@ groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
     const { rsvp: status } = JSON.parse(req.body);
     console.log(groupId, userId, status);
 
+    let rsvpYes;
+    let rsvpNo;
+    let nextGame;
+
     return admin.database()
       .ref('groups/' + groupId + '/nextGame')
       .once('value')
       .then((dataSnapshot) => {
-        const nextGame = dataSnapshot.val();
-        const rsvpYes = nextGame.rsvpYes || [];
-        const rsvpNo = nextGame.rsvpNo || [];
+        nextGame = dataSnapshot.val();
+        rsvpYes = nextGame.rsvpYes || [];
+        rsvpNo = nextGame.rsvpNo || [];
         _.remove(rsvpNo, (id) => id === userId);
         _.remove(rsvpYes, (id) => id === userId);
 
@@ -179,10 +295,19 @@ groups.rsvp = app.post('/groups/:groupId/rsvp', (req, res) => {
             break;
         }
 
-        let updates = {};
-        updates['groups/' + groupId + '/nextGame/rsvpYes'] = rsvpYes;
-        updates['groups/' + groupId + '/nextGame/rsvpNo'] = rsvpNo;
-        return admin.database().ref().update(updates);
+        if (rsvpYes.length === nextGame.numberOfPlayers)
+        {
+          prepareGameForStart(rsvpYes);
+        }
+        else
+        {
+          delete nextGame.teamA;
+          delete nextGame.teamB;
+        }
+
+        nextGame['rsvpYes'] = rsvpYes;
+        nextGame['rsvpNo'] = rsvpNo;
+        return admin.database().ref('groups/' + groupId + '/nextGame').set(nextGame);
       })
       .then(res.status(200).send({status}))
       .catch((error) => {
