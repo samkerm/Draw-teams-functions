@@ -82,7 +82,32 @@ exports.replicateRatings = functions.database.ref('/users/{userId}/ratings').onW
   // return admin.database().ref('ratings/').push().set(newRatings);*/
 });
 
-function handleRegularsNotification(group)
+/**
+ * Every time a group information is changed, send a silent notification 'groupUdpated: true'
+ * to all members of that group. If the app is oppened and on home screen the screen should reload group data.
+ */
+exports.notifyGroupUsers = functions.database.ref('/groups/{groupId}').onUpdate((snapshot, context) => {
+  console.log('Group change triggered functions');
+  console.log(snapshot);
+
+  // Grab the current value of what was written to the Realtime Database.
+  const group = snapshot && snapshot.after && snapshot.after.val();
+  const groupId = context && context.params && context.params.groupId;
+
+  console.log(group, groupId);
+  
+  // Combine all members to update their view
+  let notifyingIds = [];
+  if (group && group.regulars) {
+    notifyingIds = notifyingIds.concat(group.regulars)
+  }
+  if (group && group.reserves) {
+    notifyingIds = notifyingIds.concat(group.reserves)
+  }
+  notifications.sendSilentPushNotificationTo({groupUpdated: "1"}, notifyingIds);
+});
+
+function handleRegularsNotification(groups)
 {
   const goupsWithGames = groups.filter((group) => {
     // 'dddd, YYYY-MMM-DD kk:mm' formatting comes from the app. It needs to be a match
@@ -102,7 +127,7 @@ function handleRegularsNotification(group)
       }
       return true;
     });
-    notifications.sendPushNotificationTo('RSVP pending', 'Please confirm your attendance for next game to keep your spot', notifyingIds);
+    notifications.sendPushNotificationTo('RSVP pending', 'Please confirm your attendance for next game to keep your spot', {}, notifyingIds);
   })
 }
 
@@ -115,7 +140,7 @@ function handleReservesNotification(groups) {
   });
 
   goupsWithGames.forEach((group) => {
-    notifications.sendPushNotificationTo(`RSVP opened', 'RSVP is opened to reserves of ${group.name || 'Your Group'}`, group.reserves);
+    notifications.sendPushNotificationTo('RSVP opened', `RSVP is opened to reserves of ${group.name || 'Your Group'}`, {}, group.reserves);
   })
 }
 
@@ -127,12 +152,69 @@ function processEndGame(groups)
       group.nextGame.gameDate &&
       group.nextGame.gameDate === moment().tz('America/Los_Angeles').format('dddd, YYYY-MMM-DD kk:mm'));
   });
-  // .
-  // .
-  // .
-  // .
-  // .
-  // Process resettings.
+  
+  goupsWithGamesEnded.forEach((group) => {
+    // For now just instantly update things
+    const title = 'Rate Your Teammate';
+    const description = 'Game has ended. Please provide ratings for your teammates.';
+
+    if (group.nextGame && group.nextGame.teamA && group.nextGame.teamB) {
+      notifications.sendPushNotificationTo(title, description, {
+        team: group.nextGame.teamA.toString() // Data payload must be in string
+      }, group.nextGame.teamA);
+      notifications.sendPushNotificationTo(title, description, {
+        team: group.nextGame.teamB.toString() // Data payload must be in string
+      }, group.nextGame.teamB);
+    }
+
+    let gameDate;
+    let regularsNotification;
+    let reservesNotification;
+
+    if (group.nextGame.weeklyRepeat)
+    {
+      // Add 1 week to dates.
+      gameDate = moment(group.nextGame.gameDate, 'dddd, YYYY-MMM-DD kk:mm').add(7, 'days').format('dddd, YYYY-MMM-DD kk:mm');
+      regularsNotification = moment(group.nextGame.regularsNotification, 'dddd, YYYY-MMM-DD kk:mm').add(7, 'days').format('dddd, YYYY-MMM-DD kk:mm');
+      if (!_.isEmpty(group.nextGame.reservesNotification))
+      {
+        reservesNotification = moment(group.nextGame.reservesNotification, 'dddd, YYYY-MMM-DD kk:mm').add(7, 'days').format('dddd, YYYY-MMM-DD kk:mm');
+      }
+    }
+    else if (group.nextGame.monthlyRepeat)
+    {
+      // Add 1 month to dates.
+      gameDate = moment(group.nextGame.gameDate, 'dddd, YYYY-MMM-DD kk:mm').add(1, 'months').format('dddd, YYYY-MMM-DD kk:mm');
+      regularsNotification = moment(group.nextGame.regularsNotification, 'dddd, YYYY-MMM-DD kk:mm').add(1, 'months').format('dddd, YYYY-MMM-DD kk:mm');
+      if (!_.isEmpty(group.nextGame.reservesNotification)) {
+        reservesNotification = moment(group.nextGame.reservesNotification, 'dddd, YYYY-MMM-DD kk:mm').add(1, 'months').format('dddd, YYYY-MMM-DD kk:mm');
+      }
+    }
+
+    const nextGame = {
+      gameDate,
+      regularsNotification,
+      reservesNotification,
+      weeklyRepeat: group.nextGame.weeklyRepeat,
+      monthlyRepeat: group.nextGame.monthlyRepeat,
+      numberOfPlayers: group.nextGame.numberOfPlayers
+    };
+
+    admin.database().ref('groups/' + group.id + '/nextGame')
+      .set(nextGame)
+      .then(console.log('Successfully created a new next game'))
+      .catch((error) => {
+        console.error('Setting next game failed: ', error.message);
+      });
+    // One hour later
+    setTimeout(() => {
+      // Get the teamA and teamB
+      // Send notifications to people with user ids to rate
+      // look for repeating status
+      // set next game if should repeat
+      // remove game if not repeating.
+    }, 3600000);
+  });
 }
 
 exports.minute_job =
@@ -147,7 +229,9 @@ exports.minute_job =
       {
         if (snapshot && snapshot.val())
         {
-          const groups = _.values(snapshot.val());
+          const groups = _.values(snapshot.val()); // Creates an array of values
+          const groupIds = _.keys(snapshot.val()); // Creates an array of keys
+          groups.forEach((group, index) => group.id = groupIds[index]); // Add keys as an id parameter
           handleRegularsNotification(groups);
           handleReservesNotification(groups);
           processEndGame(groups)

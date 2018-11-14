@@ -251,7 +251,7 @@ function prepareGameForStart(userIds) {
   getUserRatingsSorted(userIds)
   .then((users) => evaluateUsersByRatings(users))
   .then((playerAndRatings) => distributePlayersInTeams(playerAndRatings))
-  .then(() => notification.sendPushNotificationTo('Teams have been selected', 'Log in to your group to see your team', userIds))
+  .then(() => notification.sendPushNotificationTo('Teams have been selected', 'Log in to your group to see your team', {}, userIds))
   .catch((error) => {
     console.error(error);
   });
